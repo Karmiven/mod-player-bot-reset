@@ -9,46 +9,43 @@
 #include "PlayerbotMgr.h"
 #include "PlayerbotAI.h"
 #include "AutoMaintenanceOnLevelupAction.h"
-#include "ObjectMgr.h" 
+#include "ObjectMgr.h"
 #include "WorldSession.h"
 #include "Item.h"
 #include "RandomPlayerbotMgr.h"
-
 
 // -----------------------------------------------------------------------------
 // GLOBALS: Configuration Values
 // -----------------------------------------------------------------------------
 static uint8 g_ResetBotMaxLevel      = 80;
 static uint8 g_ResetBotChancePercent = 100;
-static bool g_DebugMode = false;
+static bool g_DebugMode              = false;
+static bool g_ScaledChance           = false;
 
 // -----------------------------------------------------------------------------
 // LOAD CONFIGURATION USING sConfigMgr
 // -----------------------------------------------------------------------------
 static void LoadPlayerBotResetConfig()
 {
-    // Load ResetBotLevel.MaxLevel from worldserver.conf
     g_ResetBotMaxLevel = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.MaxLevel", 80));
 
-    // Validate the loaded MaxLevel
     if (g_ResetBotMaxLevel < 2 || g_ResetBotMaxLevel > 80)
     {
-        LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.MaxLevel value: {}. It must be between 2 and 80. Using default value 80.", g_ResetBotMaxLevel);
+        LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.MaxLevel value: {}. Using default value 80.", g_ResetBotMaxLevel);
         g_ResetBotMaxLevel = 80;
     }
 
-    // Load ResetBotLevel.ResetChance from worldserver.conf
     g_ResetBotChancePercent = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.ResetChance", 100));
 
-    // Validate the loaded ResetChancePercent
     if (g_ResetBotChancePercent > 100)
     {
-        LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.ResetChance value: {}. It must be between 0 and 100. Using default value 100.", g_ResetBotChancePercent);
+        LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.ResetChance value: {}. Using default value 100.", g_ResetBotChancePercent);
         g_ResetBotChancePercent = 100;
     }
 
-    // Load Debug Mode from worldserver.conf
     g_DebugMode = sConfigMgr->GetOption<bool>("ResetBotLevel.DebugMode", false);
+
+    g_ScaledChance = sConfigMgr->GetOption<bool>("ResetBotLevel.ScaledChance", false);
 }
 
 // -----------------------------------------------------------------------------
@@ -62,31 +59,19 @@ static bool IsPlayerBot(Player* player)
         return false;
     }
 
-    // Retrieve the PlayerbotAI instance using PlayerbotsMgr
     PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(player);
-    
-    if (botAI && botAI->IsBotAI())
-    {
-        return true;
-    }
-
-    return false;
+    return botAI && botAI->IsBotAI();
 }
 
 static bool IsPlayerRandomBot(Player* player)
 {
     if (!player)
     {
-        LOG_ERROR("server.loading", "[mod-player-bot-reset] IsPlayerBot called with nullptr.");
+        LOG_ERROR("server.loading", "[mod-player-bot-reset] IsPlayerRandomBot called with nullptr.");
         return false;
     }
 
-    if(sRandomPlayerbotMgr->IsRandomBot(player))
-    {
-        return true;
-    }
-
-    return false;
+    return sRandomPlayerbotMgr->IsRandomBot(player);
 }
 
 // -----------------------------------------------------------------------------
@@ -100,11 +85,10 @@ public:
     void OnStartup() override
     {
         LoadPlayerBotResetConfig();
-
-        // Log the active status and configuration values of the module
-        LOG_INFO("server.loading", "[mod-player-bot-reset] Loaded and active with MaxLevel = {} and ResetChance = {}%.", 
-                 static_cast<int>(g_ResetBotMaxLevel), 
-                 static_cast<int>(g_ResetBotChancePercent));
+        LOG_INFO("server.loading", "[mod-player-bot-reset] Loaded and active with MaxLevel = {}, ResetChance = {}%, ScaledChance = {}.",
+                 static_cast<int>(g_ResetBotMaxLevel),
+                 static_cast<int>(g_ResetBotChancePercent),
+                 g_ScaledChance ? "Enabled" : "Disabled");
     }
 };
 
@@ -116,33 +100,30 @@ class ResetBotLevelPlayerScript : public PlayerScript
 public:
     ResetBotLevelPlayerScript() : PlayerScript("ResetBotLevelPlayerScript") { }
 
-    // OnLogin event to notify players that the module is active
     void OnLogin(Player* player) override
     {
         if (!player)
             return;
 
-        const std::string loadMessage = "The [mod-player-bot-reset] module is active on this server.";
-        ChatHandler(player->GetSession()).SendSysMessage(loadMessage);
+        ChatHandler(player->GetSession()).SendSysMessage("The [mod-player-bot-reset] module is active on this server.");
     }
 
-    // OnLevelChanged event to reset bot level if it exceeds the configured maximum
     void OnLevelChanged(Player* player, uint8 /*oldLevel*/) override
     {
-        uint8 newLevel = player->GetLevel();
-        if(newLevel == 1)
-        {
-            return;
-        }
-
         if (!player)
         {
             LOG_ERROR("server.loading", "[mod-player-bot-reset] OnLevelChanged called with nullptr player.");
             return;
         }
 
+        uint8 newLevel = player->GetLevel();
+        if (newLevel == 1)
+        {
+            return;
+        }
+
         if (!IsPlayerBot(player))
-        {    
+        {
             if (g_DebugMode)
             {
                 LOG_INFO("server.loading", "[mod-player-bot-reset] Player '{}' is not a bot. Skipping level reset check.", player->GetName());
@@ -159,19 +140,28 @@ public:
             return;
         }
 
-        if (newLevel >= g_ResetBotMaxLevel)
+        // Compute the scaled reset chance if enabled
+        uint8 resetChance = g_ResetBotChancePercent;
+        if (g_ScaledChance)
         {
-            // Roll between 0 and 99; if less than ResetChancePercent, reset the level
-            if (urand(0, 99) < g_ResetBotChancePercent)
+            resetChance = static_cast<uint8>((static_cast<float>(newLevel) / g_ResetBotMaxLevel) * g_ResetBotChancePercent);
+            if (g_DebugMode)
+            {
+                LOG_INFO("server.loading", "[mod-player-bot-reset] Scaled reset chance for bot '{}' at level {}: {}%", player->GetName(), newLevel, resetChance);
+            }
+        }
+
+        // If scaling is enabled, reset check happens at **every level-up**
+        // Otherwise, only check at max level
+        if (g_ScaledChance || newLevel >= g_ResetBotMaxLevel)
+        {
+            if (urand(0, 99) < resetChance)
             {
                 player->SetLevel(1);
                 player->SetUInt32Value(PLAYER_XP, 0);
 
-                // Notify the player bot that their level has been reset
-                const std::string resetMessage = "[mod-player-bot-reset] Your level has been reset to 1.";
-                ChatHandler(player->GetSession()).SendSysMessage(resetMessage);
+                ChatHandler(player->GetSession()).SendSysMessage("[mod-player-bot-reset] Your level has been reset to 1.");
 
-                // Destroy all equipped items
                 for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
                 {
                     if (Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
@@ -187,17 +177,13 @@ public:
 
                 if (g_DebugMode)
                 {
-                    LOG_INFO("server.loading", "[mod-player-bot-reset] Bot '{}' hit level {} and was randomly reset to level 1.", player->GetName(), g_ResetBotMaxLevel);
+                    LOG_INFO("server.loading", "[mod-player-bot-reset] Bot '{}' hit level {} and was reset to level 1.", player->GetName(), newLevel);
                 }
 
-                // Retrieve the PlayerbotAI instance
                 PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(player);
                 if (botAI)
                 {
-                    // Instantiate the AutoMaintenanceOnLevelupAction
                     AutoMaintenanceOnLevelupAction maintenanceAction(botAI);
-
-                    // Execute the maintenance actions
                     maintenanceAction.Execute(Event());
 
                     if (g_DebugMode)

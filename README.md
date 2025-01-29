@@ -8,6 +8,7 @@ This module for **AzerothCore** resets the level of **player bots** when they ex
 
 - **Configurable Maximum Level**: Set the maximum level a bot can reach before being reset to level 1.
 - **Configurable Reset Chance**: Specify the percentage chance for a bot's level to reset upon reaching the max level.
+- **Scaled Reset Chance (New Feature)**: Optionally, make the reset chance **happen on every level-up** and **scale dynamically** as the bot levels up. The reset chance starts low at early levels and increases as the bot approaches max level. At the max level, it reaches the configured Reset Chance.
 - **Support for Random Bots**: Only applies the reset to bots managed by `RandomPlayerbotMgr`.
 - **Auto Equipment Reset**: Destroys all equipped items when resetting a bot.
 - **Auto Maintenance Execution**: Runs `AutoMaintenanceOnLevelupAction` after resetting to ensure bots are properly initialized.
@@ -35,6 +36,7 @@ Update the module configuration:
 ```ini
 ResetBotLevel.MaxLevel = 80
 ResetBotLevel.ResetChance = 100
+ResetBotLevel.ScaledChance = 0
 ResetBotLevel.DebugMode = 0
 ```
 
@@ -52,11 +54,12 @@ Restart the server:
 
 Modify these settings in `mod-player-bot-reset.conf` to customize behavior:
 
-| Setting                     | Description                               | Default | Valid Values       |
-| --------------------------- | ----------------------------------------- | ------- | ------------------ |
-| `ResetBotLevel.MaxLevel`    | Maximum level before reset                | `80`    | `2-80`             |
-| `ResetBotLevel.ResetChance` | % chance to reset upon reaching max level | `100`   | `0-100`            |
-| `ResetBotLevel.DebugMode`   | Enable detailed debug logging             | `0`     | `0 (off) / 1 (on)` |
+| Setting                     | Description                                             | Default | Valid Values       |
+| --------------------------- | ------------------------------------------------------- | ------- | ------------------ |
+| `ResetBotLevel.MaxLevel`    | Maximum level before reset                              | `80`    | `2-80`             |
+| `ResetBotLevel.ResetChance` | % chance to reset upon reaching max level              | `100`   | `0-100`            |
+| `ResetBotLevel.ScaledChance` | Enables reset chance scaling per level-up (NEW)       | `0`     | `0 (off) / 1 (on)` |
+| `ResetBotLevel.DebugMode`   | Enable detailed debug logging                          | `0`     | `0 (off) / 1 (on)` |
 
 ## Debugging
 

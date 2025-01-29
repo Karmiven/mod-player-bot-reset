@@ -18,6 +18,17 @@ ResetBotLevel.MaxLevel   = 80
 
 ResetBotLevel.ResetChance = 100
 
+#    ResetBotLevel.ScaledChance
+#        Description: If enabled (1), the reset chance will happen every level and scale based on the
+#                     distance between the bot's level and the set MaxLevel.
+#                     Bots will have a small chance of resetting at lower levels, increasing
+#                     as they approach the max level. At the max level, the reset chance reaches
+#                     the configured ResetBotLevel.ResetChance value.
+#        Default:     0 (disabled)
+#                     Valid values: 0 (off) / 1 (on)
+
+ResetBotLevel.ScaledChance = 0
+
 #    ResetBotLevel.DebugMode
 #        Description: Enables debug logging for the Reset Bot Level module.
 #                     When enabled, additional log information is displayed to help with debugging.
