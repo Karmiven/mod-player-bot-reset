@@ -6,12 +6,12 @@ This module for **AzerothCore** resets the level of **player bots** when they ex
 
 ## Features
 
-- Configurable Maximum Level: Set the maximum level a bot can reach before being reset to level 1.
-- Configurable Reset Chance: Specify the percentage chance for a bot's level to reset upon reaching the max level.
-- Support for Random Bots: Only applies the reset to bots managed by `RandomPlayerbotMgr`.
-- Auto Equipment Reset: Destroys all equipped items when resetting a bot.
-- Auto Maintenance Execution: Runs `AutoMaintenanceOnLevelupAction` after resetting to ensure bots are properly initialized.
-- Debug Mode: Optional logging for detailed debugging.
+- **Configurable Maximum Level**: Set the maximum level a bot can reach before being reset to level 1.
+- **Configurable Reset Chance**: Specify the percentage chance for a bot's level to reset upon reaching the max level.
+- **Support for Random Bots**: Only applies the reset to bots managed by `RandomPlayerbotMgr`.
+- **Auto Equipment Reset**: Destroys all equipped items when resetting a bot.
+- **Auto Maintenance Execution**: Runs `AutoMaintenanceOnLevelupAction` after resetting to ensure bots are properly initialized.
+- **Debug Mode**: Optional logging for detailed debugging.
 
 ## Installation
 
@@ -20,7 +20,7 @@ Ensure you have **AzerothCore** installed and running.
 Clone the module into your AzerothCore modules directory:
 ```sh
 cd /path/to/azerothcore/modules
-git clone https://github.com/YOUR_GITHUB_USERNAME/mod-player-bot-reset.git
+git clone https://github.com/DustinHendrickson/mod-player-bot-reset.git
 ```
 
 Recompile AzerothCore:
@@ -73,5 +73,7 @@ This will log actions like bot resets, destroyed items, and maintenance executio
 This module is released under the **GNU GPL v2** license, following AzerothCore's licensing model.
 
 ## Contribution
+
+Created by Dustin Hendrickson
 
 Pull requests and issues are welcome! Ensure your changes follow AzerothCore's coding standards.
