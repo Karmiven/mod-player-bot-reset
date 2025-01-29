@@ -1,0 +1,27 @@
+[worldserver]
+
+########################################
+# mod-player-bot-reset configuration
+########################################
+#
+#    ResetBotLevel.MaxLevel
+#        Description: The maximum level a bot can reach before being reset to level 1.
+#        Default:     80 
+#                     Valid range: 2-80
+
+ResetBotLevel.MaxLevel   = 80
+
+#    ResetBotLevel.ResetChance
+#        Description: The percent chance a bot has to have their level reset back to 1 when reaching the max specified level.
+#        Default:     100 
+#                     Valid range: 0-100
+
+ResetBotLevel.ResetChance = 100
+
+#    ResetBotLevel.DebugMode
+#        Description: Enables debug logging for the Reset Bot Level module.
+#                     When enabled, additional log information is displayed to help with debugging.
+#        Default:     0 (disabled)
+#                     Valid values: 0 (off) / 1 (on)
+
+ResetBotLevel.DebugMode = 0
