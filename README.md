@@ -12,11 +12,12 @@ This module for **AzerothCore** resets the level of **player bots** when they ex
 - **Support for Random Bots**: Only applies the reset to bots managed by `RandomPlayerbotMgr`.
 - **Auto Equipment Reset**: Destroys all equipped items when resetting a bot.
 - **Auto Maintenance Execution**: Runs `AutoMaintenanceOnLevelupAction` after resetting to ensure bots are properly initialized.
+- **Death Knight Support**: Checks if the bot is a Death Knight and changes the reset level to 55.
 - **Debug Mode**: Optional logging for detailed debugging.
 
 ## Installation
 
-Ensure you have **AzerothCore** installed and running.
+Ensure you have **AzerothCore Playerbots fork** installed and running.
 
 Clone the module into your AzerothCore modules directory:
 ```sh
@@ -56,9 +57,9 @@ Modify these settings in `mod-player-bot-reset.conf` to customize behavior:
 
 | Setting                     | Description                                             | Default | Valid Values       |
 | --------------------------- | ------------------------------------------------------- | ------- | ------------------ |
-| `ResetBotLevel.MaxLevel`    | Maximum level before reset                              | `80`    | `2-80`             |
+| `ResetBotLevel.MaxLevel`    | Maximum level before checking for a reset              | `80`    | `2-80`             |
 | `ResetBotLevel.ResetChance` | % chance to reset upon reaching max level              | `100`   | `0-100`            |
-| `ResetBotLevel.ScaledChance` | Enables reset chance scaling per level-up (NEW)       | `0`     | `0 (off) / 1 (on)` |
+| `ResetBotLevel.ScaledChance` | Enables reset chance scaling and per level-up checks  | `0`     | `0 (off) / 1 (on)` |
 | `ResetBotLevel.DebugMode`   | Enable detailed debug logging                          | `0`     | `0 (off) / 1 (on)` |
 
 ## Debugging
