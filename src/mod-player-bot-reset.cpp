@@ -122,6 +122,12 @@ public:
             return;
         }
 
+        // Adjustments for special Death Knight leveling
+        if(newLevel == 55 && player->getClass() == CLASS_DEATH_KNIGHT)
+        {
+            return;
+        }
+
         if (!IsPlayerBot(player))
         {
             if (g_DebugMode)
@@ -140,6 +146,10 @@ public:
             return;
         }
 
+        PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(player);
+        std::string playerClassName = botAI->GetChatHelper()->FormatClass(player->getClass());
+
+
         // Compute the scaled reset chance if enabled
         uint8 resetChance = g_ResetBotChancePercent;
         if (g_ScaledChance)
@@ -147,7 +157,7 @@ public:
             resetChance = static_cast<uint8>((static_cast<float>(newLevel) / g_ResetBotMaxLevel) * g_ResetBotChancePercent);
             if (g_DebugMode)
             {
-                LOG_INFO("server.loading", "[mod-player-bot-reset] Scaled reset chance for bot '{}' at level {}: {}%", player->GetName(), newLevel, resetChance);
+                LOG_INFO("server.loading", "[mod-player-bot-reset] Scaled reset chance for bot '{}' - {} at level {}: {}%", player->GetName(), playerClassName, newLevel, resetChance);
             }
         }
 
@@ -157,7 +167,15 @@ public:
         {
             if (urand(0, 99) < resetChance)
             {
-                player->SetLevel(1);
+                uint8 levelToResetTo = 1;
+
+                // Filter for DeathKnights
+                if(player->getClass() == CLASS_DEATH_KNIGHT)
+                {
+                    levelToResetTo = 55;
+                }
+
+                player->SetLevel(levelToResetTo);
                 player->SetUInt32Value(PLAYER_XP, 0);
 
                 ChatHandler(player->GetSession()).SendSysMessage("[mod-player-bot-reset] Your level has been reset to 1.");
@@ -177,10 +195,9 @@ public:
 
                 if (g_DebugMode)
                 {
-                    LOG_INFO("server.loading", "[mod-player-bot-reset] Bot '{}' hit level {} and was reset to level 1.", player->GetName(), newLevel);
+                    LOG_INFO("server.loading", "[mod-player-bot-reset] Bot '{}' - {} hit level {} and was reset to level {}.", player->GetName(), playerClassName, newLevel, levelToResetTo);
                 }
 
-                PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(player);
                 if (botAI)
                 {
                     AutoMaintenanceOnLevelupAction maintenanceAction(botAI);
