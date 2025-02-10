@@ -23,7 +23,6 @@ static uint8 g_ResetBotChancePercent = 100;
 static bool  g_DebugMode             = false;
 static bool  g_ScaledChance          = false;
 
-// New configuration options:
 // When true, bots at or above g_ResetBotMaxLevel are reset only after they have
 // accumulated at least g_MinTimePlayed seconds at that level.
 static bool  g_RestrictResetByPlayedTime = false;
@@ -52,7 +51,6 @@ static void LoadPlayerBotResetConfig()
     g_DebugMode   = sConfigMgr->GetOption<bool>("ResetBotLevel.DebugMode", false);
     g_ScaledChance = sConfigMgr->GetOption<bool>("ResetBotLevel.ScaledChance", false);
 
-    // New options for time played restriction.
     g_RestrictResetByPlayedTime = sConfigMgr->GetOption<bool>("ResetBotLevel.RestrictTimePlayed", false);
     g_MinTimePlayed             = sConfigMgr->GetOption<uint32>("ResetBotLevel.MinTimePlayed", 86400);
     g_PlayedTimeCheckFrequency  = sConfigMgr->GetOption<uint32>("ResetBotLevel.PlayedTimeCheckFrequency", 60);
