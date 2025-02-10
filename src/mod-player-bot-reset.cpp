@@ -13,14 +13,22 @@
 #include "WorldSession.h"
 #include "Item.h"
 #include "RandomPlayerbotMgr.h"
+#include "ObjectAccessor.h"
 
 // -----------------------------------------------------------------------------
 // GLOBALS: Configuration Values
 // -----------------------------------------------------------------------------
 static uint8 g_ResetBotMaxLevel      = 80;
 static uint8 g_ResetBotChancePercent = 100;
-static bool g_DebugMode              = false;
-static bool g_ScaledChance           = false;
+static bool  g_DebugMode             = false;
+static bool  g_ScaledChance          = false;
+
+// New configuration options:
+// When true, bots at or above g_ResetBotMaxLevel are reset only after they have
+// accumulated at least g_MinTimePlayed seconds at that level.
+static bool  g_RestrictResetByPlayedTime = false;
+static uint32 g_MinTimePlayed             = 86400; // in seconds (1 Day)
+static uint32 g_PlayedTimeCheckFrequency  = 60;    // in seconds (default check frequency)
 
 // -----------------------------------------------------------------------------
 // LOAD CONFIGURATION USING sConfigMgr
@@ -28,7 +36,6 @@ static bool g_ScaledChance           = false;
 static void LoadPlayerBotResetConfig()
 {
     g_ResetBotMaxLevel = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.MaxLevel", 80));
-
     if (g_ResetBotMaxLevel < 2 || g_ResetBotMaxLevel > 80)
     {
         LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.MaxLevel value: {}. Using default value 80.", g_ResetBotMaxLevel);
@@ -36,20 +43,23 @@ static void LoadPlayerBotResetConfig()
     }
 
     g_ResetBotChancePercent = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.ResetChance", 100));
-
     if (g_ResetBotChancePercent > 100)
     {
         LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.ResetChance value: {}. Using default value 100.", g_ResetBotChancePercent);
         g_ResetBotChancePercent = 100;
     }
 
-    g_DebugMode = sConfigMgr->GetOption<bool>("ResetBotLevel.DebugMode", false);
-
+    g_DebugMode   = sConfigMgr->GetOption<bool>("ResetBotLevel.DebugMode", false);
     g_ScaledChance = sConfigMgr->GetOption<bool>("ResetBotLevel.ScaledChance", false);
+
+    // New options for time played restriction.
+    g_RestrictResetByPlayedTime = sConfigMgr->GetOption<bool>("ResetBotLevel.RestrictTimePlayed", false);
+    g_MinTimePlayed             = sConfigMgr->GetOption<uint32>("ResetBotLevel.MinTimePlayed", 86400);
+    g_PlayedTimeCheckFrequency  = sConfigMgr->GetOption<uint32>("ResetBotLevel.PlayedTimeCheckFrequency", 60);
 }
 
 // -----------------------------------------------------------------------------
-// DETECT IF PLAYER IS A BOT
+// UTILITY FUNCTIONS: Detect if a Player is a Bot
 // -----------------------------------------------------------------------------
 static bool IsPlayerBot(Player* player)
 {
@@ -70,9 +80,146 @@ static bool IsPlayerRandomBot(Player* player)
         LOG_ERROR("server.loading", "[mod-player-bot-reset] IsPlayerRandomBot called with nullptr.");
         return false;
     }
-
     return sRandomPlayerbotMgr->IsRandomBot(player);
 }
+
+// -----------------------------------------------------------------------------
+// HELPER FUNCTION: Compute the Reset Chance
+// -----------------------------------------------------------------------------
+static uint8 ComputeResetChance(uint8 level)
+{
+    uint8 chance = g_ResetBotChancePercent;
+    if (g_ScaledChance)
+    {
+        chance = static_cast<uint8>((static_cast<float>(level) / g_ResetBotMaxLevel) * g_ResetBotChancePercent);
+        if (g_DebugMode)
+        {
+            LOG_INFO("server.loading", "[mod-player-bot-reset] ComputeResetChance: For level {} / {} with scaling, computed chance = {}%", level, g_ResetBotMaxLevel, chance);
+        }
+    }
+    else if (g_DebugMode)
+    {
+        LOG_INFO("server.loading", "[mod-player-bot-reset] ComputeResetChance: For level {} / {} without scaling, chance = {}%", level, g_ResetBotMaxLevel, chance);
+    }
+    return chance;
+}
+
+// -----------------------------------------------------------------------------
+// HELPER FUNCTION: Perform the Reset Actions for a Bot
+// -----------------------------------------------------------------------------
+static void ResetBot(Player* player, uint8 currentLevel)
+{
+    uint8 levelToResetTo = 1;
+    if (player->getClass() == CLASS_DEATH_KNIGHT)
+        levelToResetTo = 55;
+
+    player->SetLevel(levelToResetTo);
+    player->SetUInt32Value(PLAYER_XP, 0);
+
+    ChatHandler(player->GetSession()).SendSysMessage("[mod-player-bot-reset] Your level has been reset to 1.");
+
+    // Destroy equipped items.
+    for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
+    {
+        if (Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+        {
+            std::string itemName = item->GetTemplate()->Name1;
+            player->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
+            if (g_DebugMode)
+                LOG_INFO("server.loading", "[mod-player-bot-reset] ResetBot: Destroyed item '{}' in slot {} for bot '{}'.", itemName, slot, player->GetName());
+        }
+    }
+
+    // Remove the pet if present.
+    if (player->GetPet())
+        player->RemovePet(nullptr, PET_SAVE_NOT_IN_SLOT, false);
+
+    if (g_DebugMode)
+    {
+        PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(player);
+        std::string playerClassName = botAI ? botAI->GetChatHelper()->FormatClass(player->getClass()) : "Unknown";
+        LOG_INFO("server.loading", "[mod-player-bot-reset] ResetBot: Bot '{}' - {} at level {} was reset to level {}.",
+                 player->GetName(), playerClassName, currentLevel, levelToResetTo);
+    }
+
+    PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(player);
+    if (botAI)
+    {
+        AutoMaintenanceOnLevelupAction maintenanceAction(botAI);
+        maintenanceAction.Execute(Event());
+        if (g_DebugMode)
+            LOG_INFO("server.loading", "[mod-player-bot-reset] ResetBot: AutoMaintenanceOnLevelupAction executed for bot '{}'.", player->GetName());
+    }
+    else
+    {
+        LOG_ERROR("server.loading", "[mod-player-bot-reset] ResetBot: Failed to retrieve PlayerbotAI for bot '{}'.", player->GetName());
+    }
+}
+
+// -----------------------------------------------------------------------------
+// PLAYER SCRIPT: OnLogin and OnLevelChanged (Original Logic Preserved)
+// -----------------------------------------------------------------------------
+class ResetBotLevelPlayerScript : public PlayerScript
+{
+public:
+    ResetBotLevelPlayerScript() : PlayerScript("ResetBotLevelPlayerScript") { }
+
+    void OnLogin(Player* player) override
+    {
+        if (!player)
+            return;
+        ChatHandler(player->GetSession()).SendSysMessage("The [mod-player-bot-reset] module is active on this server.");
+    }
+
+    void OnLevelChanged(Player* player, uint8 /*oldLevel*/) override
+    {
+        if (!player)
+        {
+            LOG_ERROR("server.loading", "[mod-player-bot-reset] OnLevelChanged called with nullptr player.");
+            return;
+        }
+
+        uint8 newLevel = player->GetLevel();
+        if (newLevel == 1)
+            return;
+
+        // Special case for Death Knights.
+        if (newLevel == 55 && player->getClass() == CLASS_DEATH_KNIGHT)
+            return;
+
+        if (!IsPlayerBot(player))
+        {
+            if (g_DebugMode)
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Player '{}' is not a bot. Skipping reset check.", player->GetName());
+            return;
+        }
+
+        if (!IsPlayerRandomBot(player))
+        {
+            if (g_DebugMode)
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Player '{}' is not a random bot. Skipping reset check.", player->GetName());
+            return;
+        }
+
+        // If time-played restriction is enabled and the bot is at (or above) the max level,
+        // defer the reset to the periodic OnUpdate handler.
+        if (g_RestrictResetByPlayedTime && newLevel >= g_ResetBotMaxLevel)
+        {
+            if (g_DebugMode)
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' at level {} deferred to OnUpdate due to time-played restriction.", player->GetName(), newLevel);
+            return;
+        }
+
+        uint8 resetChance = ComputeResetChance(newLevel);
+        if (g_ScaledChance || newLevel >= g_ResetBotMaxLevel)
+        {
+            if (g_DebugMode)
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' at level {} has reset chance {}%.", player->GetName(), newLevel, resetChance);
+            if (urand(0, 99) < resetChance)
+                ResetBot(player, newLevel);
+        }
+    }
+};
 
 // -----------------------------------------------------------------------------
 // WORLD SCRIPT: Load Configuration on Startup
@@ -93,128 +240,73 @@ public:
 };
 
 // -----------------------------------------------------------------------------
-// PLAYER SCRIPT: Handle OnLogin and Reset Bot Level if Necessary
+// WORLD SCRIPT: OnUpdate Check for Time-Played Based Reset at Max Level
+// This handler runs every g_PlayedTimeCheckFrequency seconds and iterates over players.
+// For each bot at or above g_ResetBotMaxLevel that has accumulated at least g_MinTimePlayed
+// seconds at the current level, it applies the same reset chance logic and resets the bot if the check passes.
 // -----------------------------------------------------------------------------
-class ResetBotLevelPlayerScript : public PlayerScript
+class ResetBotLevelTimeCheckWorldScript : public WorldScript
 {
 public:
-    ResetBotLevelPlayerScript() : PlayerScript("ResetBotLevelPlayerScript") { }
+    ResetBotLevelTimeCheckWorldScript() : WorldScript("ResetBotLevelTimeCheckWorldScript"), m_timer(0) { }
 
-    void OnLogin(Player* player) override
+    void OnUpdate(uint32 diff) override
     {
-        if (!player)
+        if (!g_RestrictResetByPlayedTime)
             return;
 
-        ChatHandler(player->GetSession()).SendSysMessage("The [mod-player-bot-reset] module is active on this server.");
-    }
+        m_timer += diff;
+        if (m_timer < g_PlayedTimeCheckFrequency * 1000)
+            return;
+        m_timer = 0;
 
-    void OnLevelChanged(Player* player, uint8 /*oldLevel*/) override
-    {
-        if (!player)
+        if (g_DebugMode)
         {
-            LOG_ERROR("server.loading", "[mod-player-bot-reset] OnLevelChanged called with nullptr player.");
-            return;
+            LOG_INFO("server.loading", "[mod-player-bot-reset] OnUpdate: Starting time-based reset check...");
         }
 
-        uint8 newLevel = player->GetLevel();
-        if (newLevel == 1)
+        auto const& allPlayers = ObjectAccessor::GetPlayers();
+        for (auto const& itr : allPlayers)
         {
-            return;
-        }
+            Player* candidate = itr.second;
+            if (!candidate || !candidate->IsInWorld())
+                continue;
+            if (!IsPlayerBot(candidate) || !IsPlayerRandomBot(candidate))
+                continue;
 
-        // Adjustments for special Death Knight leveling
-        if(newLevel == 55 && player->getClass() == CLASS_DEATH_KNIGHT)
-        {
-            return;
-        }
+            uint8 currentLevel = candidate->GetLevel();
+            if (currentLevel < g_ResetBotMaxLevel)
+                continue;
 
-        if (!IsPlayerBot(player))
-        {
-            if (g_DebugMode)
+            // Only reset if the bot has played at least g_MinTimePlayed seconds at this level.
+            if (candidate->GetLevelPlayedTime() < g_MinTimePlayed)
             {
-                LOG_INFO("server.loading", "[mod-player-bot-reset] Player '{}' is not a bot. Skipping level reset check.", player->GetName());
-            }
-            return;
-        }
-
-        if (!IsPlayerRandomBot(player))
-        {
-            if (g_DebugMode)
-            {
-                LOG_INFO("server.loading", "[mod-player-bot-reset] Player '{}' is not a random bot. Skipping level reset check.", player->GetName());
-            }
-            return;
-        }
-
-        PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(player);
-        std::string playerClassName = botAI->GetChatHelper()->FormatClass(player->getClass());
-
-
-        // Compute the scaled reset chance if enabled
-        uint8 resetChance = g_ResetBotChancePercent;
-        if (g_ScaledChance)
-        {
-            resetChance = static_cast<uint8>((static_cast<float>(newLevel) / g_ResetBotMaxLevel) * g_ResetBotChancePercent);
-            if (g_DebugMode)
-            {
-                LOG_INFO("server.loading", "[mod-player-bot-reset] Scaled reset chance for bot '{}' - {} at level {}: {}%", player->GetName(), playerClassName, newLevel, resetChance);
-            }
-        }
-
-        // If scaling is enabled, reset check happens at **every level-up**
-        // Otherwise, only check at max level
-        if (g_ScaledChance || newLevel >= g_ResetBotMaxLevel)
-        {
-            if (urand(0, 99) < resetChance)
-            {
-                uint8 levelToResetTo = 1;
-
-                // Filter for DeathKnights
-                if(player->getClass() == CLASS_DEATH_KNIGHT)
-                {
-                    levelToResetTo = 55;
-                }
-
-                player->SetLevel(levelToResetTo);
-                player->SetUInt32Value(PLAYER_XP, 0);
-
-                ChatHandler(player->GetSession()).SendSysMessage("[mod-player-bot-reset] Your level has been reset to 1.");
-
-                for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
-                {
-                    if (Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
-                    {
-                        std::string itemName = item->GetTemplate()->Name1;
-                        player->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
-                        if (g_DebugMode)
-                        {
-                            LOG_INFO("server.loading", "[mod-player-bot-reset] Destroyed item '{}' in slot {} for bot '{}'.", itemName, slot, player->GetName());
-                        }
-                    }
-                }
-
                 if (g_DebugMode)
                 {
-                    LOG_INFO("server.loading", "[mod-player-bot-reset] Bot '{}' - {} hit level {} and was reset to level {}.", player->GetName(), playerClassName, newLevel, levelToResetTo);
+                    LOG_INFO("server.loading", "[mod-player-bot-reset] OnUpdate: Bot '{}' at level {} has insufficient played time ({} < {} seconds).",
+                             candidate->GetName(), currentLevel, candidate->GetLevelPlayedTime(), g_MinTimePlayed);
                 }
+                continue;
+            }
 
-                if (botAI)
+            uint8 resetChance = ComputeResetChance(currentLevel);
+            if (g_DebugMode)
+            {
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnUpdate: Bot '{}' qualifies for time-based reset. Level: {}, LevelPlayedTime: {} seconds, computed reset chance: {}%.",
+                         candidate->GetName(), currentLevel, candidate->GetLevelPlayedTime(), resetChance);
+            }
+            if (urand(0, 99) < resetChance)
+            {
+                if (g_DebugMode)
                 {
-                    AutoMaintenanceOnLevelupAction maintenanceAction(botAI);
-                    maintenanceAction.Execute(Event());
-
-                    if (g_DebugMode)
-                    {
-                        LOG_INFO("server.loading", "[mod-player-bot-reset] AutoMaintenanceOnLevelupAction executed for bot '{}'.", player->GetName());
-                    }
+                    LOG_INFO("server.loading", "[mod-player-bot-reset] OnUpdate: Reset chance check passed for bot '{}'. Resetting bot.", candidate->GetName());
                 }
-                else
-                {
-                    LOG_ERROR("server.loading", "[mod-player-bot-reset] Failed to retrieve PlayerbotAI for bot '{}'.", player->GetName());
-                }
+                ResetBot(candidate, currentLevel);
             }
         }
     }
+private:
+    uint32 m_timer;
 };
 
 // -----------------------------------------------------------------------------
@@ -224,4 +316,5 @@ void Addmod_player_bot_resetScripts()
 {
     new ResetBotLevelWorldScript();
     new ResetBotLevelPlayerScript();
+    new ResetBotLevelTimeCheckWorldScript();
 }
