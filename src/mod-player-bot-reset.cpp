@@ -111,26 +111,9 @@ static void ResetBot(Player* player, uint8 currentLevel)
     if (player->getClass() == CLASS_DEATH_KNIGHT)
         levelToResetTo = 55;
 
-    player->SetLevel(levelToResetTo);
-    player->SetUInt32Value(PLAYER_XP, 0);
+    PlayerbotFactory newFactory(player, levelToResetTo);
 
-    ChatHandler(player->GetSession()).SendSysMessage("[mod-player-bot-reset] Your level has been reset to 1.");
-
-    // Destroy equipped items.
-    for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
-    {
-        if (Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
-        {
-            std::string itemName = item->GetTemplate()->Name1;
-            player->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
-            if (g_DebugMode)
-                LOG_INFO("server.loading", "[mod-player-bot-reset] ResetBot: Destroyed item '{}' in slot {} for bot '{}'.", itemName, slot, player->GetName());
-        }
-    }
-
-    // Remove the pet if present.
-    if (player->GetPet())
-        player->RemovePet(nullptr, PET_SAVE_NOT_IN_SLOT, false);
+    newFactory.Randomize(false);
 
     if (g_DebugMode)
     {
@@ -140,18 +123,8 @@ static void ResetBot(Player* player, uint8 currentLevel)
                  player->GetName(), playerClassName, currentLevel, levelToResetTo);
     }
 
-    PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(player);
-    if (botAI)
-    {
-        AutoMaintenanceOnLevelupAction maintenanceAction(botAI);
-        maintenanceAction.Execute(Event());
-        if (g_DebugMode)
-            LOG_INFO("server.loading", "[mod-player-bot-reset] ResetBot: AutoMaintenanceOnLevelupAction executed for bot '{}'.", player->GetName());
-    }
-    else
-    {
-        LOG_ERROR("server.loading", "[mod-player-bot-reset] ResetBot: Failed to retrieve PlayerbotAI for bot '{}'.", player->GetName());
-    }
+    ChatHandler(player->GetSession()).SendSysMessage("[mod-player-bot-reset] Your level has been reset.");
+
 }
 
 // -----------------------------------------------------------------------------
