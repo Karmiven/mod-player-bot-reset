@@ -111,9 +111,17 @@ static void ResetBot(Player* player, uint8 currentLevel)
     if (player->getClass() == CLASS_DEATH_KNIGHT)
         levelToResetTo = 55;
 
-    PlayerbotFactory newFactory(bot, levelToResetTo);
+    PlayerbotFactory newFactory(player, levelToResetTo);
 
     newFactory.Randomize(false);
+
+    if (g_DebugMode)
+    {
+        PlayerbotAI* botAI = sPlayerbotsMgr->GetPlayerbotAI(player);
+        std::string playerClassName = botAI ? botAI->GetChatHelper()->FormatClass(player->getClass()) : "Unknown";
+        LOG_INFO("server.loading", "[mod-player-bot-reset] ResetBot: Bot '{}' - {} at level {} was reset to level {}.",
+                 player->GetName(), playerClassName, currentLevel, levelToResetTo);
+    }
 
     ChatHandler(player->GetSession()).SendSysMessage("[mod-player-bot-reset] Your level has been reset.");
 
