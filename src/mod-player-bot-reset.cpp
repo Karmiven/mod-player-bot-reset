@@ -30,8 +30,8 @@ static const uint32 PERIODIC_CHECK_INTERVAL = 15 * 60 * 1000; // in milliseconds
 
 // When true, bots at or above g_ResetBotMaxLevel are reset only after they have
 // accumulated at least g_MinTimePlayed seconds at that level.
-static bool  g_RestrictResetByPlayedTime = false;
-static uint32 g_MinTimePlayed             = 86400; // in seconds (1 Day)
+static bool  g_RestrictResetByPlayedTime  = false;
+static uint32 g_MinTimePlayed             = 86400;  // in seconds (1 Day)
 static uint32 g_PlayedTimeCheckFrequency  = 300;    // in seconds (default check frequency)
 
 // -----------------------------------------------------------------------------
