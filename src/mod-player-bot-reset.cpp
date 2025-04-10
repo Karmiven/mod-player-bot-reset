@@ -28,7 +28,6 @@ static bool  g_DebugMode             = false;
 static bool  g_ScaledChance          = false;
 static const uint32 PERIODIC_CHECK_INTERVAL = 15 * 60 * 1000; // in milliseconds (15 minutes)
 
-
 // When true, bots at or above g_ResetBotMaxLevel are reset only after they have
 // accumulated at least g_MinTimePlayed seconds at that level.
 static bool  g_RestrictResetByPlayedTime = false;
