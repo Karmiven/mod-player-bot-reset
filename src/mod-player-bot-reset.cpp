@@ -32,7 +32,7 @@ static const uint32 PERIODIC_CHECK_INTERVAL = 15 * 60 * 1000; // in milliseconds
 // accumulated at least g_MinTimePlayed seconds at that level.
 static bool  g_RestrictResetByPlayedTime  = false;
 static uint32 g_MinTimePlayed             = 86400;  // in seconds (1 Day)
-static uint32 g_PlayedTimeCheckFrequency  = 300;    // in seconds (default check frequency)
+static uint32 g_PlayedTimeCheckFrequency  = 864;    // in seconds (default check frequency)
 
 // -----------------------------------------------------------------------------
 // LOAD CONFIGURATION USING sConfigMgr
