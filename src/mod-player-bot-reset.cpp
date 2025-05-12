@@ -181,7 +181,7 @@ static void SkipBotLevel(Player* player, uint8 currentLevel)
 }
 
 // -----------------------------------------------------------------------------
-// PLAYER SCRIPT: OnLogin and OnLevelChanged (Original Logic Preserved)
+// PLAYER SCRIPT: OnLogin and OnLevelChanged
 // -----------------------------------------------------------------------------
 class ResetBotLevelPlayerScript : public PlayerScript
 {
@@ -239,9 +239,19 @@ public:
         if (g_ResetBotMaxLevel == 0)
             return;
     
-        // If time-played restriction is enabled and the bot is at (or above) the max level,
-        // defer the reset to the periodic OnUpdate handler.
-        if (g_RestrictResetByPlayedTime && newLevel >= g_ResetBotMaxLevel)
+        // If the bot is strictly above MaxLevel, reset immediately regardless of time played
+        if (g_ResetBotMaxLevel > 0 && newLevel > g_ResetBotMaxLevel)
+        {
+            if (g_DebugMode)
+                LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' exceeded max level {}. Resetting immediately.", 
+                        player->GetName(), g_ResetBotMaxLevel);
+            
+            ResetBot(player, newLevel);
+            return;
+        }
+        
+        // If bot is exactly at MaxLevel, apply the regular time-played restriction
+        if (g_RestrictResetByPlayedTime && newLevel == g_ResetBotMaxLevel)
         {
             if (g_DebugMode)
                 LOG_INFO("server.loading", "[mod-player-bot-reset] OnLevelChanged: Bot '{}' at level {} deferred to OnUpdate due to time-played restriction.", player->GetName(), newLevel);
