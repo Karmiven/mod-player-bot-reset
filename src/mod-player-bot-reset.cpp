@@ -334,7 +334,6 @@ public:
 
 // -----------------------------------------------------------------------------
 // WORLD SCRIPT: OnUpdate Check for Time-Played Based Reset at Max Level
-// This handler runs every g_PlayedTimeCheckFrequency seconds and iterates over players.
 // For each bot at or above g_ResetBotMaxLevel that has accumulated at least g_MinTimePlayed
 // seconds at the current level, it applies the same reset chance logic and resets the bot if the check passes.
 // -----------------------------------------------------------------------------
@@ -342,31 +341,11 @@ public:
 
 class ResetBotLevelTimeCheckWorldScript : public WorldScript
 {
-    public:
-    ResetBotLevelTimeCheckWorldScript() : WorldScript("ResetBotLevelTimeCheckWorldScript"), 
-        m_timer(0), m_periodicCheckTimer(0) { }
+public:
+    ResetBotLevelTimeCheckWorldScript() : WorldScript("ResetBotLevelTimeCheckWorldScript"), m_timer(0) { }
 
     void OnUpdate(uint32 diff) override
     {
-        // Periodic check for all bots
-        m_periodicCheckTimer += diff;
-        if (m_periodicCheckTimer >= PERIODIC_CHECK_INTERVAL)
-        {
-            m_periodicCheckTimer = 0;
-            
-            if (g_DebugMode)
-            {
-                LOG_INFO("server.loading", "[mod-player-bot-reset] Starting periodic check of bots...");
-            }
-            
-            ProcessExistingBots();
-            
-            if (g_DebugMode)
-            {
-                LOG_INFO("server.loading", "[mod-player-bot-reset] Completed periodic check of bots.");
-            }
-        }
-
         // Skip if time restrictions are disabled or MaxLevel is disabled
         if (!g_RestrictResetByPlayedTime || g_ResetBotMaxLevel == 0)
             return;
@@ -424,63 +403,6 @@ class ResetBotLevelTimeCheckWorldScript : public WorldScript
 
 private:
     uint32 m_timer;
-    uint32 m_periodicCheckTimer;
-
-    void ProcessExistingBots()
-    {
-        if (g_DebugMode)
-        {
-            LOG_INFO("server.loading", "[mod-player-bot-reset] Starting check of existing bots for level limits...");
-        }
-
-        auto const& allPlayers = ObjectAccessor::GetPlayers();
-        for (auto const& itr : allPlayers)
-        {
-            Player* candidate = itr.second;
-            if (!candidate || !candidate->IsInWorld())
-                continue;
-            if (!IsPlayerBot(candidate) || !IsPlayerRandomBot(candidate))
-                continue;
-
-            uint8 currentLevel = candidate->GetLevel();
-            
-            // Check for SkipFromLevel condition
-            if (g_SkipFromLevel > 0 && currentLevel == g_SkipFromLevel)
-            {
-                if (g_DebugMode)
-                {
-                    LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessExistingBots: Bot '{}' at level {} matches SkipFromLevel. Applying skip.",
-                             candidate->GetName(), currentLevel);
-                }
-                SkipBotLevel(candidate, currentLevel);
-                continue;
-            }
-            
-            // Check for MaxLevel condition
-            if (g_ResetBotMaxLevel > 0 && currentLevel >= g_ResetBotMaxLevel)
-            {
-                // Only proceed if time restriction is disabled or the bot has played enough time
-                if (!g_RestrictResetByPlayedTime || candidate->GetLevelPlayedTime() >= g_MinTimePlayed)
-                {
-                    uint8 resetChance = ComputeResetChance(currentLevel);
-                    if (urand(0, 99) < resetChance)
-                    {
-                        if (g_DebugMode)
-                        {
-                            LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessExistingBots: Reset chance check passed for bot '{}'. Resetting bot.", 
-                                    candidate->GetName());
-                        }
-                        ResetBot(candidate, currentLevel);
-                    }
-                }
-                else if (g_DebugMode)
-                {
-                    LOG_INFO("server.loading", "[mod-player-bot-reset] ProcessExistingBots: Bot '{}' at level {} has insufficient played time ({} < {} seconds).",
-                            candidate->GetName(), currentLevel, candidate->GetLevelPlayedTime(), g_MinTimePlayed);
-                }
-            }
-        }
-    }
 };
 
 // -----------------------------------------------------------------------------
