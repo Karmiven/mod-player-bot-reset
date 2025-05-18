@@ -333,7 +333,8 @@ public:
 };
 
 // -----------------------------------------------------------------------------
-// WORLD SCRIPT: OnUpdate Check for Time-Played Based Reset at Max Level
+// WORLD SCRIPT: OnUpdate Check for Time-Played Based Reset at Max Level.
+// This handler runs every g_PlayedTimeCheckFrequency seconds and iterates over players.
 // For each bot at or above g_ResetBotMaxLevel that has accumulated at least g_MinTimePlayed
 // seconds at the current level, it applies the same reset chance logic and resets the bot if the check passes.
 // -----------------------------------------------------------------------------
