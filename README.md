@@ -83,8 +83,7 @@ This module is released under the **GNU AGPLv3** license, in accordance with Aze
 
 ## Contribution
 
-[Original version](https://github.com/DustinHendrickson/mod-player-bot-reset) created by Dustin Hendrickson.
+Created by Dustin Hendrickson.
 
-Forked and modified by NoxMax
 
 Pull requests and issues are welcome. Please ensure your contributions follow AzerothCore's coding standards.
