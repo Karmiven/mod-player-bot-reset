@@ -27,7 +27,7 @@ static uint8 g_ResetBotChancePercent = 100;
 static bool  g_DebugMode             = false;
 static bool  g_ScaledChance          = false;
 
-// When true, bots at g_ResetBotMaxLevel are reset only after they haveaccumulated at least
+// When true, bots at g_ResetBotMaxLevel are reset only after they have accumulated at least
 // g_MinTimePlayed seconds at that level. Bots above g_ResetBotMaxLevel are reset right away
 static bool  g_RestrictResetByPlayedTime  = false;
 static uint32 g_MinTimePlayed             = 86400;  // in seconds (1 Day)
