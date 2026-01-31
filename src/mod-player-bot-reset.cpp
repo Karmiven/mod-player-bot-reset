@@ -52,51 +52,51 @@ static std::unordered_set<uint32> g_PersistentRealPlayerGuildIds;
 // -----------------------------------------------------------------------------
 static void LoadPlayerBotResetConfig()
 {
-    g_ResetBotMaxLevel = static_cast<uint8>(sConfigMgr.GetOption<uint32>("ResetBotLevel.MaxLevel", 80));
+    g_ResetBotMaxLevel = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.MaxLevel", 80));
     if ((g_ResetBotMaxLevel < 2 || g_ResetBotMaxLevel > 80) && g_ResetBotMaxLevel != 0)
     {
         LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.MaxLevel value: {}. Using default value 80.", g_ResetBotMaxLevel);
         g_ResetBotMaxLevel = 80;
     }
 
-    g_ResetToLevel = static_cast<uint8>(sConfigMgr.GetOption<uint32>("ResetBotLevel.ResetToLevel", 1));
+    g_ResetToLevel = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.ResetToLevel", 1));
     if (g_ResetToLevel < 1 || (g_ResetBotMaxLevel > 0 && g_ResetToLevel >= g_ResetBotMaxLevel))
     {
         LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.ResetToLevel value: {}. Using default value 1.", g_ResetToLevel);
         g_ResetToLevel = 1;
     }
 
-    g_SkipFromLevel = static_cast<uint8>(sConfigMgr.GetOption<uint32>("ResetBotLevel.SkipFromLevel", 0));
+    g_SkipFromLevel = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.SkipFromLevel", 0));
     if (g_SkipFromLevel > 80 || (g_ResetBotMaxLevel > 0 && g_SkipFromLevel >= g_ResetBotMaxLevel))
     {
         LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.SkipFromLevel value: {}. Using default value 0 (disabled).", g_SkipFromLevel);
         g_SkipFromLevel = 0;
     }
 
-    g_SkipToLevel = static_cast<uint8>(sConfigMgr.GetOption<uint32>("ResetBotLevel.SkipToLevel", 1));
+    g_SkipToLevel = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.SkipToLevel", 1));
     if (g_SkipToLevel < 1 || g_SkipToLevel > 80 || (g_ResetBotMaxLevel > 0 && g_SkipToLevel > g_ResetBotMaxLevel))
     {
         LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.SkipToLevel value: {}. Using default value 1.", g_SkipToLevel);
         g_SkipToLevel = 1;
     }
 
-    g_ResetBotChancePercent = static_cast<uint8>(sConfigMgr.GetOption<uint32>("ResetBotLevel.ResetChance", 100));
+    g_ResetBotChancePercent = static_cast<uint8>(sConfigMgr->GetOption<uint32>("ResetBotLevel.ResetChance", 100));
     if (g_ResetBotChancePercent > 100)
     {
         LOG_ERROR("server.loading", "[mod-player-bot-reset] Invalid ResetBotLevel.ResetChance value: {}. Using default value 100.", g_ResetBotChancePercent);
         g_ResetBotChancePercent = 100;
     }
 
-    g_DebugMode   = sConfigMgr.GetOption<bool>("ResetBotLevel.DebugMode", false);
-    g_ScaledChance = sConfigMgr.GetOption<bool>("ResetBotLevel.ScaledChance", false);
+    g_DebugMode   = sConfigMgr->GetOption<bool>("ResetBotLevel.DebugMode", false);
+    g_ScaledChance = sConfigMgr->GetOption<bool>("ResetBotLevel.ScaledChance", false);
 
-    g_RestrictResetByPlayedTime = sConfigMgr.GetOption<bool>("ResetBotLevel.RestrictTimePlayed", false);
-    g_MinTimePlayed             = sConfigMgr.GetOption<uint32>("ResetBotLevel.MinTimePlayed", 86400);
-    g_PlayedTimeCheckFrequency  = sConfigMgr.GetOption<uint32>("ResetBotLevel.PlayedTimeCheckFrequency", 864);
+    g_RestrictResetByPlayedTime = sConfigMgr->GetOption<bool>("ResetBotLevel.RestrictTimePlayed", false);
+    g_MinTimePlayed             = sConfigMgr->GetOption<uint32>("ResetBotLevel.MinTimePlayed", 86400);
+    g_PlayedTimeCheckFrequency  = sConfigMgr->GetOption<uint32>("ResetBotLevel.PlayedTimeCheckFrequency", 864);
 
-    g_IgnoreGuildBotsWithRealPlayers = sConfigMgr.GetOption<bool>("ResetBotLevel.IgnoreGuildBotsWithRealPlayers", false);
+    g_IgnoreGuildBotsWithRealPlayers = sConfigMgr->GetOption<bool>("ResetBotLevel.IgnoreGuildBotsWithRealPlayers", false);
 
-    std::string excludeNames = sConfigMgr.GetOption<std::string>("ResetBotLevel.ExcludeNames", "");
+    std::string excludeNames = sConfigMgr->GetOption<std::string>("ResetBotLevel.ExcludeNames", "");
     g_ExcludeBotNames.clear();
     std::istringstream f(excludeNames);
     std::string s;
